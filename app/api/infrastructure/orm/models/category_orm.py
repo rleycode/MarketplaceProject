@@ -37,9 +37,17 @@ class Category(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String)
 
-    ozon_category_id: Mapped[int] = mapped_column(ForeignKey("marketplace_categories.id"))
-    wb_category_id: Mapped[int] = mapped_column(ForeignKey("marketplace_categories.id"))
+    ozon_category_id = mapped_column(ForeignKey("marketplace_categories.id"), nullable=True)
+    wb_category_id = mapped_column(ForeignKey("marketplace_categories.id"), nullable=True)
 
-    # ORM-связи
-    ozon_category = relationship("MarketplaceCategory", foreign_keys=[ozon_category_id])
-    wb_category = relationship("MarketplaceCategory", foreign_keys=[wb_category_id])
+    ozon_category = relationship(
+        "MarketplaceCategory",
+        foreign_keys=[ozon_category_id],
+        lazy="joined"
+    )
+    wb_category = relationship(
+        "MarketplaceCategory",
+        foreign_keys=[wb_category_id],
+        lazy="joined"
+    )
+    

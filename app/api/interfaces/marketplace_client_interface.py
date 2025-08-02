@@ -1,13 +1,17 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Tuple
-from app.api.infrastructure.orm.models.category_orm import MarketplaceCategory
+from typing import List, Dict, Optional, Tuple
+from app.api.infrastructure.orm.models.category_orm import Category, MarketplaceCategory
 
-class ICategoryRepository:
-    async def get_existing_ids(self):
-        raise NotImplementedError
+class ICategoryRepository(ABC):
+    @abstractmethod
+    async def get_existing_ids(self) -> set[Tuple[str, str]]: ...
 
-    async def add_categories_to_database(self, categories):
-        raise NotImplementedError
+    @abstractmethod
+    async def add_categories_to_database(self, records: List[Dict]) -> None: ...
 
-    async def get_category_by_id(self, local_category_id: int):
-        raise NotImplementedError
+    @abstractmethod
+    async def get_all(self) -> List[MarketplaceCategory]: ...
+
+    @abstractmethod
+    async def get_category_by_id(self, category_id: int) -> Optional[Category]:
+        ...
