@@ -1,5 +1,8 @@
+from typing import List
+from app.api.entities.category_entity import Category
 from app.api.interfaces.marketplace_client_interface import ICategoryRepository
 from app.api.infrastructure.orm.models.category_orm import MarketplaceEnum
+from app.api.schemas.category import CategoryIn
 
 
 class AddTreeCategoriesUseCase:
@@ -62,3 +65,14 @@ class AddTreeCategoriesUseCase:
 
         if filtered_records:
             await self.category_repo.add_categories_to_database(filtered_records)
+
+class CategoryService:
+    def __init__(self, repository: ICategoryRepository):
+        self.repository = repository
+
+    async def save_categories(self, categories: List[CategoryIn]) -> None:
+        records = [category.model_dump() for category in categories]
+        await self.repository.add_categories_to_database(records)
+
+    async def get_all_categories(self):
+        return await self.repository.get_all()

@@ -7,3 +7,6 @@ sessionmaker = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_c
 
 class Base(DeclarativeBase):
     pass
+
+def get_async_session():
+    return sessionmaker

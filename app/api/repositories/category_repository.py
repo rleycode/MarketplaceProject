@@ -1,21 +1,19 @@
 from typing import List, Dict, Tuple
-from sqlalchemy import select
+from sqlalchemy import Sequence, select
 from sqlalchemy.dialects.postgresql import insert
-from app.api.infrastructure.orm.models.category_orm import MarketplaceCategory, MarketplaceEnum
+from app.api.infrastructure.orm.models.category_orm import MarketplaceCategory
 from app.api.interfaces.marketplace_client_interface import ICategoryRepository
 from app.api.repositories.base import SQLAlchemyRepository
-
 
 class CategoryRepository(SQLAlchemyRepository, ICategoryRepository):
     model = MarketplaceCategory
 
-    async def get_existing_ids(self) -> set[Tuple[MarketplaceEnum, int]]:
+    async def get_existing_ids(self) -> set[Tuple[str, str]]:
         async with self.session as session:
             result = await session.execute(
                 select(self.model.marketplace, self.model.external_id)
             )
-            rows = result.all()
-            return {(row[0], row[1]) for row in result.all()}
+            return {(str(row[0]), str(row[1])) for row in result.all()}
 
     async def add_categories_to_database(self, records: List[Dict]):
         async with self.session as session:
@@ -27,3 +25,8 @@ class CategoryRepository(SQLAlchemyRepository, ICategoryRepository):
                     )
                     await session.execute(stmt)
             await session.commit()
+
+    async def get_all(self):
+        async with self.session as session:
+            result = await session.execute(select(self.model))
+            return result.mappings().all()
