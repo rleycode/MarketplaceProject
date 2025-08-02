@@ -70,7 +70,7 @@ class CategoryService:
     def __init__(self, repository: ICategoryRepository):
         self.repository = repository
 
-    async def save_categories(self, categories: List[CategoryIn]) -> None:
+    async def save_categories(self, categories) -> None:
         records = [category.model_dump() for category in categories]
         await self.repository.add_categories_to_database(records)
 
