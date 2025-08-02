@@ -6,7 +6,10 @@ from app.api.schemas.category import CategoryIn
 from app.api.di.dependencies import get_category_attributes_service, get_category_service, get_ozon_client, get_wb_client
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.infrastructure.marketplace_clients.ozon_client import OzonClient
-
+from fastapi import APIRouter, Depends, Response
+from app.api.services.product_service import ProductExportService
+from fastapi import UploadFile, File, BackgroundTasks
+from app.api.services.product_service import ProductImportService
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
