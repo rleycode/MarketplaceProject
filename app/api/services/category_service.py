@@ -41,13 +41,13 @@ class AddTreeCategoriesUseCase:
             for child in node.get("children", []):
                 process_ozon(child, parent_id)
 
-        def process_wb(nodes, parent_id=None):
+        def process_wb(nodes):
             for node in nodes:
                 records.append({
                     "marketplace": MarketplaceEnum.WB,
-                    "external_id": node["id"],
-                    "parent_external_id": parent_id,
-                    "name": node["name"],
+                    "external_id": node.get("subjectID", node.get("id")),
+                    "parent_external_id": node.get("parentID"),
+                    "name": node.get("subjectName", node.get("name")),
                     "type_id": None
                 })
 

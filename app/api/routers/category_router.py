@@ -32,5 +32,5 @@ async def get_marketplace_categories(
     category_service: AddTreeCategoriesUseCase = Depends(get_category_service)
 ):
     ozon_categories = await ozon_client.get_tree_categories()
-    wb_categories = await wb_client.get_parent_categories()
+    wb_categories = await wb_client.get_all_categories()
     await category_service.execute(ozon_categories, wb_categories)
