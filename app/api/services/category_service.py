@@ -66,13 +66,3 @@ class AddTreeCategoriesUseCase:
         if filtered_records:
             await self.category_repo.add_categories_to_database(filtered_records)
 
-class CategoryService:
-    def __init__(self, repository: ICategoryRepository):
-        self.repository = repository
-
-    async def save_categories(self, categories) -> None:
-        records = [category.model_dump() for category in categories]
-        await self.repository.add_categories_to_database(records)
-
-    async def get_all_categories(self):
-        return await self.repository.get_all()
