@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 
 async def get_category_repository(
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_async_session()),
 ) -> CategoryRepository:
     return CategoryRepository(session=session)
 
