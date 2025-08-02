@@ -39,9 +39,7 @@ class Category(Base):
 
     ozon_category_id: Mapped[int] = mapped_column(ForeignKey("marketplace_categories.id"))
     wb_category_id: Mapped[int] = mapped_column(ForeignKey("marketplace_categories.id"))
-    yandex_category_id: Mapped[int] = mapped_column(ForeignKey("marketplace_categories.id"))
 
     # ORM-связи
     ozon_category = relationship("MarketplaceCategory", foreign_keys=[ozon_category_id])
     wb_category = relationship("MarketplaceCategory", foreign_keys=[wb_category_id])
-    yandex_category = relationship("MarketplaceCategory", foreign_keys=[yandex_category_id])

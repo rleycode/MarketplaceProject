@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from typing import List
 from app.api.infrastructure.marketplace_clients.wb_client import WbClient
-from app.api.services.category_service import AddTreeCategoriesUseCase
+from app.api.services.category_service import AddTreeCategoriesUseCase, CategoryAttributesService
 from app.api.schemas.category import CategoryIn
-from app.api.di.dependencies import get_category_service, get_ozon_client, get_wb_client
+from app.api.di.dependencies import get_category_attributes_service, get_category_service, get_ozon_client, get_wb_client
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.infrastructure.marketplace_clients.ozon_client import OzonClient
 
@@ -34,3 +34,11 @@ async def get_marketplace_categories(
     ozon_categories = await ozon_client.get_tree_categories()
     wb_categories = await wb_client.get_all_categories()
     await category_service.execute(ozon_categories, wb_categories)
+    
+@router.get("/categories/{local_id}/required-attributes")
+async def get_required_attributes(
+    local_id: int,
+    category_service: CategoryAttributesService = Depends(get_category_attributes_service),
+):
+    result = await category_service.get_required_attributes(local_id)
+    return result

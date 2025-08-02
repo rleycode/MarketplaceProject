@@ -1,7 +1,8 @@
+from sqlalchemy.orm import selectinload
 from typing import List, Dict, Tuple
 from sqlalchemy import Sequence, select
 from sqlalchemy.dialects.postgresql import insert
-from app.api.infrastructure.orm.models.category_orm import MarketplaceCategory
+from app.api.infrastructure.orm.models.category_orm import Category, MarketplaceCategory
 from app.api.interfaces.marketplace_client_interface import ICategoryRepository
 from app.api.repositories.base import SQLAlchemyRepository
 
@@ -30,3 +31,14 @@ class CategoryRepository(SQLAlchemyRepository, ICategoryRepository):
         async with self.session as session:
             result = await session.execute(select(self.model))
             return result.mappings().all()
+        
+    async def get_category_by_id(self, category_id: int) -> Category | None:
+        result = await self.session.execute(
+            select(Category)
+            .where(Category.id == category_id)
+            .options(
+                selectinload(Category.ozon_category),
+                selectinload(Category.wb_category)
+            )
+        )
+        return result.scalar_one_or_none()

@@ -42,3 +42,10 @@ class OzonClient:
                 last_id = result[-1]["id"]
         
         return all_results
+    
+    async def get_category_attributes(self, external_id: int, type_id: int) -> list[dict]:
+        # Пример запроса, уточните путь и параметры под ваш API Ozon
+        data = {"category_id": external_id, "type_id": type_id}
+        response = await self.client.post("/v1/attribute/category", json=data)
+        response.raise_for_status()
+        return response.json().get("result", [])

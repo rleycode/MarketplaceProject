@@ -4,7 +4,7 @@ from app.api.repositories.category_repository import CategoryRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from collections.abc import AsyncGenerator
-from app.api.services.category_service import AddTreeCategoriesUseCase
+from app.api.services.category_service import AddTreeCategoriesUseCase, CategoryAttributesService
 from app.api.infrastructure.orm.database import sessionmaker
 
 # Здесь должен быть асинхронный генератор!
@@ -27,3 +27,14 @@ def get_category_service(
     category_repo: CategoryRepository = Depends(get_category_repository)
 ) -> AddTreeCategoriesUseCase:
     return AddTreeCategoriesUseCase(category_repo=category_repo)
+
+def get_category_attributes_service(
+    category_repo: CategoryRepository = Depends(get_category_repository),
+    ozon_client: OzonClient = Depends(get_ozon_client),
+    wb_client: WbClient = Depends(get_wb_client)
+) -> CategoryAttributesService:
+    return CategoryAttributesService(
+        category_repo=category_repo,
+        ozon_client=ozon_client,
+        wb_client=wb_client
+    )

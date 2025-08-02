@@ -3,7 +3,11 @@ from app.api.entities.category_entity import Category
 from app.api.interfaces.marketplace_client_interface import ICategoryRepository
 from app.api.infrastructure.orm.models.category_orm import MarketplaceEnum
 from app.api.schemas.category import CategoryIn
-
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.api.infrastructure.orm.models.category_orm import Category
+from app.api.infrastructure.marketplace_clients.ozon_client import OzonClient
+from app.api.infrastructure.marketplace_clients.wb_client import WbClient
 
 class AddTreeCategoriesUseCase:
     def __init__(self, category_repo: ICategoryRepository):
@@ -66,3 +70,38 @@ class AddTreeCategoriesUseCase:
         if filtered_records:
             await self.category_repo.add_categories_to_database(filtered_records)
 
+
+class CategoryAttributesService:
+    def __init__(self, category_repo: ICategoryRepository, wb_client: WbClient, ozon_client: OzonClient):
+        self.category_repo = category_repo
+        self.wb_client = wb_client
+        self.ozon_client = ozon_client
+
+    async def get_required_attributes(self, local_category_id: int) -> dict:
+        # 1. Получаем локальную категорию и связанные marketplace-категории
+        category = await self.category_repo.get_category_by_id(local_category_id)
+        if not category:
+            return {"error": "Category not found"}
+
+        attributes = {}
+
+        # 2. WB: только если есть parent_external_id
+        if category.wb_category and category.wb_category.parent_external_id:
+            wb_external_id = category.wb_category.external_id
+            # 3. Запрос к WB API
+            wb_attrs = await self.wb_client.get_category_attributes(wb_external_id)
+            # 4. Фильтрация по is_required
+            wb_required = [attr for attr in wb_attrs if attr.get("is_required")]
+            attributes["wb"] = wb_required
+
+        # 2. Ozon: только если есть type_id
+        if category.ozon_category and category.ozon_category.type_id:
+            ozon_external_id = category.ozon_category.external_id
+            ozon_type_id = category.ozon_category.type_id
+            # 3. Запрос к Ozon API
+            ozon_attrs = await self.ozon_client.get_category_attributes(ozon_external_id, ozon_type_id)
+            # 4. Фильтрация по is_required
+            ozon_required = [attr for attr in ozon_attrs if attr.get("is_required")]
+            attributes["ozon"] = ozon_required
+
+        return attributes
