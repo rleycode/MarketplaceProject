@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.api.core.config import setting
 from app.api.infrastructure.orm.database import Base
 from app.api.infrastructure.orm.models.category_orm import *
+from app.api.infrastructure.orm.models.product_orm import *
 from alembic import context
 
 # this is the Alembic Config object, which provides
@@ -53,9 +54,21 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and reflected and compare_to is None:
+        # Таблица есть в базе, но нет в метадате — не удалять
+        return False
+    return True
+
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        compare_server_default=True,
+        include_object=include_object  # ← вот это добавлено
+    )
 
     with context.begin_transaction():
         context.run_migrations()

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import MarketplaceCategory, Category
+from .admin_forms import CategoryAdminForm
 
 @admin.register(MarketplaceCategory)
 class MarketplaceCategoryAdmin(admin.ModelAdmin):
@@ -9,5 +10,6 @@ class MarketplaceCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
+    form = CategoryAdminForm
     list_display = ("id", "name", "ozon_category", "wb_category")
     search_fields = ("name",)

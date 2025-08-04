@@ -29,7 +29,7 @@ class MarketplaceCategory(Base):
         DateTime,
         server_default=func.now(),
     )
-
+    products = relationship("Product", back_populates="category")
 
 class Category(Base):
     __tablename__ = "categories"

@@ -1,5 +1,8 @@
+from io import BytesIO
 from fastapi import APIRouter, Depends
 from typing import List
+
+import pandas as pd
 from app.api.infrastructure.marketplace_clients.wb_client import WbClient
 from app.api.services.category_service import AddTreeCategoriesUseCase, CategoryAttributesService
 from app.api.schemas.category import CategoryIn
@@ -45,3 +48,31 @@ async def get_required_attributes(
 ):
     result = await category_service.get_required_attributes(local_id)
     return result
+
+@router.get("/export", summary="Выгрузить атрибуты в Excel")
+async def export_attributes(
+    service: CategoryAttributesService = Depends(get_category_attributes_service),
+    local_category_id: int = 1,  # или получай из query params
+):
+    attributes = await service.get_required_attributes(local_category_id)
+
+    # Получаем списки названий атрибутов из Ozon и WB
+    ozon_names = [attr.get("name") for attr in attributes.get("ozon", []) if attr.get("name")]
+    wb_names = [attr.get("name") for attr in attributes.get("wb", []) if attr.get("name")]
+
+    # Уникальный объединённый список имён
+    all_names = list(dict.fromkeys(ozon_names + wb_names))
+
+    # Создаём DataFrame с одной строкой (шаблон пустой)
+    df = pd.DataFrame(columns=all_names)
+
+    # Записываем в Excel в байты
+    output = BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=attributes_{local_category_id}.xlsx"},
+    )

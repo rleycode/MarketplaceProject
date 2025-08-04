@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.api.infrastructure.orm.database import Base
+from app.api.infrastructure.orm.models.category_orm import MarketplaceCategory
 
 class Product(Base):
     __tablename__ = "nomenklatura"
@@ -25,37 +26,29 @@ class Product(Base):
     comment: Mapped[str] = mapped_column(String)
     media_id: Mapped[int] = mapped_column(Integer, ForeignKey("media.id"))
     fitment_id: Mapped[int] = mapped_column(Integer, ForeignKey("fitment_-_primenyaemost.id"))
-    type_id: Mapped[int] = mapped_column(Integer, ForeignKey("kategorii_mp.id"))
+    type: Mapped[int] = mapped_column(Integer, ForeignKey("marketplace_categories.id"), name="type")
 
     # Relationships
     brand_rel = relationship("Brand", back_populates="products", primaryjoin="Product.brand==Brand.name")
     media = relationship("Media", back_populates="products")
     fitment = relationship("Fitment", back_populates="products")
     category = relationship("MarketplaceCategory", back_populates="products")
-
 # Пример моделей для связанных таблиц (минимально для связей):
 
 class Brand(Base):
     __tablename__ = "brendy"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, unique=True)
-    # ... другие поля ...
     products = relationship("Product", back_populates="brand_rel")
 
 class Media(Base):
     __tablename__ = "media"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    # ... другие поля ...
+    name: Mapped[str] = mapped_column(String, nullable=True)
     products = relationship("Product", back_populates="media")
 
 class Fitment(Base):
     __tablename__ = "fitment_-_primenyaemost"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    # ... другие поля ...
+    name: Mapped[str] = mapped_column(String, nullable=True)
     products = relationship("Product", back_populates="fitment")
-
-class MarketplaceCategory(Base):
-    __tablename__ = "kategorii_mp"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    # ... другие поля ...
-    products = relationship("Product", back_populates="category")

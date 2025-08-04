@@ -86,22 +86,33 @@ class CategoryAttributesService:
         attributes = {}
 
         # 2. WB: только если есть parent_external_id
-        if category.wb_category and category.wb_category.parent_external_id:
+        if category.wb_category and category.wb_category.external_id:
             wb_external_id = category.wb_category.external_id
-            # 3. Запрос к WB API
             wb_attrs = await self.wb_client.get_category_attributes(wb_external_id)
-            # 4. Фильтрация по is_required
-            wb_required = [attr for attr in wb_attrs if attr.get("is_required")]
+            # wb_attrs — это список словарей из ключа "data"
+            # фильтруем по ключу "required", который у тебя в примере есть
+            wb_required = [attr for attr in wb_attrs if attr.get("required") == True]
             attributes["wb"] = wb_required
 
+
         # 2. Ozon: только если есть type_id
-        if category.ozon_category and category.ozon_category.type_id:
-            ozon_external_id = category.ozon_category.external_id
+        if (
+            category.ozon_category and
+            category.ozon_category.type_id and
+            category.ozon_category.parent_external_id
+        ):
+            ozon_external_id = category.ozon_category.parent_external_id  # <--- важно
             ozon_type_id = category.ozon_category.type_id
+
             # 3. Запрос к Ozon API
-            ozon_attrs = await self.ozon_client.get_category_attributes(ozon_external_id, ozon_type_id)
+            ozon_attrs = await self.ozon_client.get_category_attributes(
+                external_id=ozon_external_id,
+                type_id=ozon_type_id
+            )
+
             # 4. Фильтрация по is_required
             ozon_required = [attr for attr in ozon_attrs if attr.get("is_required")]
             attributes["ozon"] = ozon_required
+
 
         return attributes

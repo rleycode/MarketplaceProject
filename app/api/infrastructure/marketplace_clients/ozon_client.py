@@ -44,8 +44,15 @@ class OzonClient:
         return all_results
     
     async def get_category_attributes(self, external_id: int, type_id: int) -> list[dict]:
-        # Пример запроса, уточните путь и параметры под ваш API Ozon
-        data = {"category_id": external_id, "type_id": type_id}
-        response = await self.client.post("/v1/attribute/category", json=data)
+        data = {"description_category_id": external_id, "type_id": type_id, "language": "DEFAULT"}
+        response = await self.client.post("/v1/description-category/attribute", json=data)
+        print("❗ Ответ Ozon API:", response.status_code, response.text)
         response.raise_for_status()
         return response.json().get("result", [])
+    
+    async def get_existing_products(self, offer_ids: list[str]) -> dict:
+        data = {"offer_id": offer_ids}
+        response = await self.client.post("/v3/product/info/list", json=data)
+        response.raise_for_status()
+        result = response.json().get("result", [])
+        return {item["offer_id"]: item["sku"] for item in result}
