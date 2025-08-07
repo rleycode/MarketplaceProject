@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Tuple
-from app.api.infrastructure.orm.models.category_orm import Category, MarketplaceCategory
-from app.api.infrastructure.orm.models.product_orm import Product
+
+from app.api.infrastructure.orm.models.models import Category, MarketplaceCategory, Product
+
 
 class ICategoryRepository(ABC):
     @abstractmethod
@@ -23,3 +24,13 @@ class IProductRepository(ABC):
     
     @abstractmethod
     async def get_products_by_category(self, category_id: int) -> list[Product]: ...
+    
+    @abstractmethod
+    async def get_brandsalias(self): ...
+    
+class IBrandRepository(ABC):
+    @abstractmethod
+    async def get_alias_mapping(self) -> Dict[str, str]: ...
+    
+    @abstractmethod
+    async def get_brand_alias_mapping(self): ...

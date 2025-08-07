@@ -1,6 +1,8 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Response
-from app.api.di.dependencies import get_product_service
+from app.api.di.dependencies import get_ozon_client, get_product_service, get_wb_client
+from app.api.infrastructure.marketplace_clients.ozon_client import OzonClient
+from app.api.infrastructure.marketplace_clients.wb_client import WbClient
 from app.api.services.product_service import ProductExportService
 from fastapi import UploadFile, File, BackgroundTasks
 
@@ -27,3 +29,12 @@ async def export_products(
 # ):
 #     task_id = await service.start_import_task(file)
 #     return {"task_id": task_id}
+
+@router.get("get-product-list", summary="Получить список товаров")
+async def get_product_list(
+    OzonClient: OzonClient = Depends(get_ozon_client),
+    WbClient: WbClient = Depends(get_wb_client)
+):
+    ozon = await OzonClient.get_product_list()
+    wb =  await WbClient.get_cards_list()
+    return {"ozon": ozon, "wb": wb}

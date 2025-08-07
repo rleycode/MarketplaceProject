@@ -1,12 +1,16 @@
 from app.api.infrastructure.marketplace_clients.ozon_client import OzonClient
 from app.api.infrastructure.marketplace_clients.wb_client import WbClient
+from app.api.infrastructure.marketplace_clients.yandex_client import YandexClient
+from app.api.repositories.brand_repository import BrandRepository
 from app.api.repositories.category_repository import CategoryRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from collections.abc import AsyncGenerator
 from app.api.repositories.product_repository import ProductRepository
+from app.api.services.brand_service import BrandMatchingService
 from app.api.services.category_service import AddTreeCategoriesUseCase, CategoryAttributesService
 from app.api.infrastructure.orm.database import sessionmaker
+from app.api.services.marketplace_service import MarketplaceService
 from app.api.services.product_service import ProductExportService
 
 # Здесь должен быть асинхронный генератор!
@@ -30,6 +34,8 @@ def get_ozon_client() -> OzonClient:
 def get_wb_client() -> WbClient:
     return WbClient()
 
+def get_yandex_client() -> YandexClient:
+    return YandexClient()
 def get_category_service(
     category_repo: CategoryRepository = Depends(get_category_repository)
 ) -> AddTreeCategoriesUseCase:
@@ -38,13 +44,22 @@ def get_category_service(
 def get_category_attributes_service(
     category_repo: CategoryRepository = Depends(get_category_repository),
     ozon_client: OzonClient = Depends(get_ozon_client),
-    wb_client: WbClient = Depends(get_wb_client)
+    wb_client: WbClient = Depends(get_wb_client),
+    yandex_client: YandexClient = Depends(get_yandex_client)   
 ) -> CategoryAttributesService:
     return CategoryAttributesService(
         category_repo=category_repo,
         ozon_client=ozon_client,
-        wb_client=wb_client
+        wb_client=wb_client,
+        yandex_client=yandex_client,
     )
+  
+async def get_marketplace_service(
+    attr_service: CategoryAttributesService = Depends(get_category_attributes_service),
+    category_repo: CategoryRepository = Depends(get_category_repository),
+):
+    return MarketplaceService(attr_service=attr_service, category_repo=category_repo)
+  
     
 def get_product_service(
     product_repo: ProductRepository = Depends(get_product_repository),
@@ -56,3 +71,13 @@ def get_product_service(
         ozon_client=ozon_client,
         wb_client=wb_client,
     )
+    
+def get_brand_repository(
+    session: AsyncSession = Depends(get_async_session),
+) -> BrandRepository:
+    return BrandRepository(session=session)     
+    
+def get_brand_matching_service(
+    brand_repo: BrandRepository = Depends(get_brand_repository)
+) -> BrandMatchingService:
+    return BrandMatchingService(brand_repo=brand_repo)

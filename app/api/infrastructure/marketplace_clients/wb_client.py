@@ -1,7 +1,7 @@
 from app.api.core.config import setting
 import httpx
 import asyncio
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 class WbClient:
     BASE_URL = "https://content-api.wildberries.ru"
@@ -18,133 +18,139 @@ class WbClient:
         )
         self.lock = asyncio.Lock()  # 👈 обязательно создаём один lock на весь клиент
 
-    async def safe_get(self, url: str, params: dict):
-        max_retries = 5
-        retries = 0
-        rate_limit_hits = 0
+    async def get_all_categories(self, locale: str = "ru") -> List[dict]:
+        params = {"locale": locale}
+        response = await self.client.get("/content/v2/object/parent/all", params=params)
+        response.raise_for_status()
+        parents = response.json()["data"]
 
-        while retries < max_retries:
-            async with self.lock:
+        all_categories = []
+
+        async def fetch_children(parent_id: int, depth: int = 0):
+            if depth > 10:
+                return
+
+            limit = 1000
+            offset = 0
+            while True:
+                params = {"locale": locale, "parentID": parent_id, "limit": limit, "offset": offset}
                 try:
-                    resp = await self.client.get(url, params=params)
-                    print(f"↩️ {resp.status_code} {url} | Remaining: {resp.headers.get('X-Ratelimit-Remaining')}")
-                    print(resp.text)
-
+                    resp = await self.client.get("/content/v2/object/all", params=params)
                     if resp.status_code == 429:
-                        rate_limit_hits += 1
-                        if rate_limit_hits >= 3:
-                            raise Exception("🚫 Слишком много 429 подряд — остановка")
-
-                        retry_after = int(resp.headers.get("X-Ratelimit-Retry", 5))
-                        reset_after = int(resp.headers.get("X-Ratelimit-Reset", 10))
-                        print(f"⏳ 429 Too Many Requests — sleeping {retry_after}s (reset in {reset_after}s)")
-                        await asyncio.sleep(max(retry_after, reset_after))
+                        print(f"⚠️ 429 Too Many Requests for parentID={parent_id}. Waiting 5 seconds...")
+                        await asyncio.sleep(5)
                         continue
-
-                    rate_limit_hits = 0
-
-                    if resp.status_code == 409:
-                        print("⚠️ 409 Conflict — засчитываем как 5 запросов")
-                        await asyncio.sleep(1)
-
-                    remaining = int(resp.headers.get("X-Ratelimit-Remaining", 1))
-                    if remaining == 0:
-                        retry_after = int(resp.headers.get("X-Ratelimit-Retry", 5))
-                        print(f"❗ 0 remaining — ждем {retry_after}s")
-                        await asyncio.sleep(retry_after)
-                    elif remaining < 5:
-                        await asyncio.sleep(1.5)
-                    elif remaining < 15:
-                        await asyncio.sleep(0.5)
-                    else:
-                        await asyncio.sleep(0.2)
-
                     resp.raise_for_status()
-                    return resp
-
                 except httpx.HTTPStatusError as e:
-                    retries += 1
-                    print(f"❌ Попытка {retries}, ошибка: {e}")
-                    await asyncio.sleep(2)
+                    print(f"❌ Error fetching children for {parent_id}: {e}")
+                    return
 
-        raise Exception("❌ Превышен лимит попыток safe_get")
+                await asyncio.sleep(0.3)  # Защита от бана
 
-    async def get_all_categories(self, locale: str = "ru") -> Optional[List[dict]]:
-        parents_resp = await self.safe_get("/content/v2/object/parent/all", params={"locale": locale})
-        parents = parents_resp.json()["data"]
-        all_categories = {}
-        visited = set()
+                children = resp.json()["data"]
+                if not children:
+                    break
 
-        # Список нужных категорий (можно расширить или менять по точному имени)
-        allowed_parents = {"Автозапчасти", "Автоаксессуары и дополнительное оборудование"}
+                for child in children:
+                    all_categories.append(child)
+                    if child.get("isParent"):
+                        await fetch_children(child["id"], depth + 1)
 
-        async def fetch_children(parent_id: int, parent_name: Optional[str] = None, depth=0):
-            if depth > 15 or parent_id in visited:
-                return
-            visited.add(parent_id)
-
-            url = "/content/v2/object/all"
-            params = {"locale": locale, "parentID": parent_id}
-
-            try:
-                resp = await self.safe_get(url, params)
-            except Exception as e:
-                print(f"❌ Не удалось получить детей для {parent_id}: {e}")
-                return
-
-            children = resp.json().get("data", [])
-
-            for child in children:
-                cat_id = child["subjectID"]
-                if cat_id in all_categories:
-                    continue
-                all_categories[cat_id] = {
-                    "id": cat_id,
-                    "name": child.get("subjectName", "Без названия"),
-                    "parent_id": child["parentID"],
-                    "parent_name": child.get("parentName", parent_name),
-                    "is_parent": False
-                }
-                await fetch_children(cat_id, child.get("subjectName"), depth + 1)
+                if len(children) < limit:
+                    break  # Конец данных, больше страниц нет
+                offset += limit
 
         for parent in parents:
-            parent_id = parent["id"]
-            name = parent["name"]
-            print(f"🔍 Проверяем {name} ({parent_id})")
+            all_categories.append(parent)
+            await fetch_children(parent["id"])
 
-            resp = await self.safe_get("/content/v2/object/all", params={"locale": "ru", "parentID": parent_id})
-            children = resp.json().get("data", [])
-
-            print(f"🧩 Найдено {len(children)} подкатегорий у '{name}' ({parent_id})")
-
-
-            if name not in allowed_parents:
-                # Пропускаем неподходящие категории
-                continue
-
-            all_categories[parent_id] = {
-                "id": parent_id,
-                "name": parent_name,
-                "parent_id": None,
-                "parent_name": None,
-                "is_parent": True
-            }
-            await fetch_children(parent_id, parent_name)
-
-        return list(all_categories.values())
+        return all_categories
 
     async def get_category_attributes(self, subjectId: int) -> list[dict]:
         path = f"/content/v2/object/charcs/{subjectId}"
-        response = await self.safe_get(path, params={"locale": "ru"})
+        response = await self.client.get(path, params={"locale": "ru"})
         return response.json().get("data", [])
 
     async def get_existing_products(self, vendor_codes: list[str]) -> dict:
         result_map = {}
         for chunk in [vendor_codes[i:i+100] for i in range(0, len(vendor_codes), 100)]:
-            # Тут тоже можно реализовать safe_post при необходимости
             response = await self.client.post("/content/v2/get/cards/list", json={"vendorCodes": chunk})
             response.raise_for_status()
-            for item in response.json():
+            data = response.json()
+            
+            items = data.get("cards")  # или "data", уточни в документации API
+            
+            if not items:
+                items = []
+            
+            for item in items:
                 result_map[item["vendorCode"]] = item["nmID"]
-            await asyncio.sleep(0.2)  # 🎯 по чуть-чуть регулируем темп, если много чанков
+            
+            await asyncio.sleep(0.2)
         return result_map
+
+    async def get_cards_list(
+        self,
+        limit: int = 100,
+        with_photo: int = -1,
+        text_search: Optional[str] = None,
+        tag_ids: Optional[List[int]] = None,
+        allowed_categories_only: bool = True,
+        object_ids: Optional[List[int]] = None,
+        brands: Optional[List[str]] = None,
+        imt_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Получить список карточек с поддержкой пагинации.
+        """
+        results = []
+        cursor = {
+            "limit": limit,
+            "updatedAt": None,
+            "nmID": None,
+        }
+
+        while True:
+            settings = {
+                "sort": {"ascending": False},
+                "filter": {
+                    "withPhoto": with_photo,
+                    "allowedCategoriesOnly": allowed_categories_only,
+                },
+                "cursor": cursor
+            }
+            
+            if text_search:
+                settings["filter"]["textSearch"] = text_search
+            if tag_ids:
+                settings["filter"]["tagIDs"] = tag_ids
+            if object_ids:
+                settings["filter"]["objectIDs"] = object_ids
+            if brands:
+                settings["filter"]["brands"] = brands
+            if imt_id:
+                settings["filter"]["imtID"] = imt_id
+
+            response = await self.client.post(
+                "/content/v2/get/cards/list",
+                json={"settings": settings}
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            cards = data.get("cards", [])
+            results.extend(cards)
+
+            # Обновляем курсор для следующей страницы
+            cursor_response = data.get("cursor", {})
+            updated_at = cursor_response.get("updatedAt")
+            nmID = cursor_response.get("nmID")
+
+            if not updated_at or not nmID or len(cards) < limit:
+                # Если меньше лимита в ответе — значит это последняя страница
+                break
+
+            cursor["updatedAt"] = updated_at
+            cursor["nmID"] = nmID
+
+        return results

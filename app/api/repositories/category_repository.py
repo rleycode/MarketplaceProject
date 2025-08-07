@@ -2,7 +2,7 @@ from sqlalchemy.orm import selectinload
 from typing import List, Dict, Tuple
 from sqlalchemy import Sequence, select
 from sqlalchemy.dialects.postgresql import insert
-from app.api.infrastructure.orm.models.category_orm import Category, MarketplaceCategory
+from app.api.infrastructure.orm.models.models import MarketplaceCategory, Category
 from app.api.interfaces.marketplace_client_interface import ICategoryRepository
 from app.api.repositories.base import SQLAlchemyRepository
 
@@ -38,7 +38,19 @@ class CategoryRepository(SQLAlchemyRepository, ICategoryRepository):
             .where(Category.id == category_id)
             .options(
                 selectinload(Category.ozon_category),
-                selectinload(Category.wb_category)
+                selectinload(Category.wb_category),
+                selectinload(Category.yandex_category)
             )
         )
         return result.scalar_one_or_none()
+    
+    async def get_all_local_categories_with_mp_ids(self):
+        result = await self.session.execute(
+            select(Category).options(
+                selectinload(Category.ozon_category),
+                selectinload(Category.wb_category),
+                selectinload(Category.yandex_category),
+            )
+        )
+        categories = result.scalars().all()
+        return categories

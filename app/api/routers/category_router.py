@@ -4,9 +4,10 @@ from typing import List
 
 import pandas as pd
 from app.api.infrastructure.marketplace_clients.wb_client import WbClient
+from app.api.infrastructure.marketplace_clients.yandex_client import YandexClient
 from app.api.services.category_service import AddTreeCategoriesUseCase, CategoryAttributesService
 from app.api.schemas.category import CategoryIn
-from app.api.di.dependencies import get_category_attributes_service, get_category_service, get_ozon_client, get_wb_client
+from app.api.di.dependencies import get_category_attributes_service, get_category_service, get_ozon_client, get_wb_client, get_yandex_client
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.infrastructure.marketplace_clients.ozon_client import OzonClient
 from fastapi import APIRouter, Depends, Response
@@ -35,12 +36,18 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
 async def get_marketplace_categories(
     ozon_client: OzonClient = Depends(get_ozon_client),
     wb_client: WbClient = Depends(get_wb_client),
+    yandex_client: YandexClient = Depends(get_yandex_client),
     category_service: AddTreeCategoriesUseCase = Depends(get_category_service)
 ):
+    print("Категории озон")
     ozon_categories = await ozon_client.get_tree_categories()
+    print("Категории вб")
     wb_categories = await wb_client.get_all_categories()
-    await category_service.execute(ozon_categories, wb_categories)
-    
+    print("Категории яндекс")
+    yandex_categories = await yandex_client.get_tree_categories()
+    print("В базу данных")
+    await category_service.execute(ozon_categories, wb_categories, yandex_categories)
+
 @router.get("/categories/{local_id}/required-attributes")
 async def get_required_attributes(
     local_id: int,
@@ -49,24 +56,33 @@ async def get_required_attributes(
     result = await category_service.get_required_attributes(local_id)
     return result
 
-@router.get("/export", summary="Выгрузить атрибуты в Excel")
-async def export_attributes(
-    service: CategoryAttributesService = Depends(get_category_attributes_service),
-    local_category_id: int = 1,  # или получай из query params
+@router.post("/complete", summary="Добавить обязательные атрибуты в Excel-шаблон")
+async def complete_template_with_attributes(
+    file: UploadFile = File(...),
+    attr_service: CategoryAttributesService = Depends(get_category_attributes_service),
 ):
-    attributes = await service.get_required_attributes(local_category_id)
+    content = await file.read()
+    df = pd.read_excel(BytesIO(content))
 
-    # Получаем списки названий атрибутов из Ozon и WB
-    ozon_names = [attr.get("name") for attr in attributes.get("ozon", []) if attr.get("name")]
-    wb_names = [attr.get("name") for attr in attributes.get("wb", []) if attr.get("name")]
+    if "type_id" not in df.columns:
+        return {"error": "В Excel-файле не найден столбец 'type_id'"}
 
-    # Уникальный объединённый список имён
-    all_names = list(dict.fromkeys(ozon_names + wb_names))
+    type_ids = df["type_id"].dropna().unique().tolist()
 
-    # Создаём DataFrame с одной строкой (шаблон пустой)
-    df = pd.DataFrame(columns=all_names)
+    all_attributes = set()
 
-    # Записываем в Excel в байты
+    for type_id in type_ids:
+        attributes = await attr_service.get_required_attributes(local_category_id=int(type_id))
+
+        for mp in ["ozon", "wb", "yandex"]:
+            names = [attr.get("name") for attr in attributes.get(mp, []) if attr.get("name")]
+            all_attributes.update(names)
+
+    # Добавляем недостающие колонки
+    for col in all_attributes:
+        if col not in df.columns:
+            df[col] = ""
+
     output = BytesIO()
     df.to_excel(output, index=False)
     output.seek(0)
@@ -74,5 +90,5 @@ async def export_attributes(
     return Response(
         content=output.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=attributes_{local_category_id}.xlsx"},
+        headers={"Content-Disposition": "attachment; filename=completed_template.xlsx"},
     )

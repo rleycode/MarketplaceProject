@@ -1,3 +1,4 @@
+from typing import List, Optional
 from app.api.core.config import setting
 import httpx
 
@@ -11,7 +12,8 @@ class OzonClient:
                 "Client-Id": client_id,
                 "Api-Key": api_key,
                 "Content-Type": "application/json"
-            }
+            },
+            timeout=httpx.Timeout(20.0)
         )
     
     async def get_tree_categories(self) -> list[dict]:
@@ -54,5 +56,31 @@ class OzonClient:
         data = {"offer_id": offer_ids}
         response = await self.client.post("/v3/product/info/list", json=data)
         response.raise_for_status()
-        result = response.json().get("result", [])
-        return {item["offer_id"]: item["sku"] for item in result}
+        result = response.json().get("items", [])
+        return {item["offer_id"]: item["id"] for item in result if "offer_id" in item and "id" in item}
+
+    async def get_product_list(
+        self,
+        offer_ids: Optional[List[str]] = None,
+        product_ids: Optional[List[str]] = None,
+        visibility: str = "ALL",
+        last_id: str = "",
+        limit: int = 100
+    ):
+        body = {
+            "filter": {
+                "visibility": visibility
+            },
+            "last_id": last_id,
+            "limit": limit
+        }
+
+        if offer_ids:
+            body["filter"]["offer_id"] = offer_ids
+        elif product_ids:
+            body["filter"]["product_id"] = product_ids
+
+        response = await self.client.post("/v3/product/list", json=body)
+        response.raise_for_status()
+        return response.json()
+        

@@ -17,10 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from categories.views import OzonCategoryAutocomplete, WbCategoryAutocomplete
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('ozon-category-autocomplete/', OzonCategoryAutocomplete.as_view(), name='ozon-category-autocomplete'),
-    path('wb-category-autocomplete/', WbCategoryAutocomplete.as_view(), name='wb-category-autocomplete'),
 ]
