@@ -27,3 +27,23 @@ class ProductRepository(SQLAlchemyRepository, IProductRepository):
             .join(Brand, BrandAlias.brand_id == Brand.id)
         )
         return result
+    
+    async def get_products_by_ids(self, ids: List[int]) -> List[Product]:
+        """
+        Загружает продукты по списку id с eager загрузкой связанных сущностей.
+        """
+        query = (
+            select(Product)
+            .where(Product.id.in_(ids))
+            .options(
+                selectinload(Product.price),
+                selectinload(Product.media),
+                selectinload(Product.size),
+                selectinload(Product.fitment),
+                selectinload(Product.brand),
+                selectinload(Product.category),
+            )
+        )
+        result = await self.session.execute(query)
+        products = list(result.scalars().all())  # <-- преобразуем в list
+        return products

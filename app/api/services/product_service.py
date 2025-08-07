@@ -84,6 +84,9 @@ class ProductExportService:
 
         return products
     
+    async def get_products_by_ids(self, product_ids: List[int]) -> List[Optional[dict]]:
+        return await self.product_repo.get_products_by_ids(product_ids)
+    
 class ProductImportService:
     async def start_import_task(self, file: UploadFile) -> str:
         content = await file.read()

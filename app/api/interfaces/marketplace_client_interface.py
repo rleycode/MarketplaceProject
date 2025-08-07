@@ -28,6 +28,9 @@ class IProductRepository(ABC):
     @abstractmethod
     async def get_brandsalias(self): ...
     
+    @abstractmethod
+    async def get_products_by_ids(self, product_ids: List[int]) -> List[Optional[dict]]: ...
+    
 class IBrandRepository(ABC):
     @abstractmethod
     async def get_alias_mapping(self) -> Dict[str, str]: ...

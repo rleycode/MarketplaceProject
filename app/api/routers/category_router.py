@@ -34,19 +34,19 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
 
 @router.get("/get_marketplace_categories", summary="Получить категории с маркетплейсов")
 async def get_marketplace_categories(
-    ozon_client: OzonClient = Depends(get_ozon_client),
-    wb_client: WbClient = Depends(get_wb_client),
-    yandex_client: YandexClient = Depends(get_yandex_client),
-    category_service: AddTreeCategoriesUseCase = Depends(get_category_service)
-):
-    print("Категории озон")
-    ozon_categories = await ozon_client.get_tree_categories()
-    print("Категории вб")
-    wb_categories = await wb_client.get_all_categories()
-    print("Категории яндекс")
-    yandex_categories = await yandex_client.get_tree_categories()
-    print("В базу данных")
-    await category_service.execute(ozon_categories, wb_categories, yandex_categories)
+        ozon_client: OzonClient = Depends(get_ozon_client),
+        wb_client: WbClient = Depends(get_wb_client),
+        yandex_client: YandexClient = Depends(get_yandex_client),
+        category_service: AddTreeCategoriesUseCase = Depends(get_category_service)
+    ):
+        print("Категории озон")
+        ozon_categories = await ozon_client.get_tree_categories()
+        print("Категории вб")
+        wb_categories = await wb_client.get_all_categories()
+        print("Категории яндекс")
+        yandex_categories = await yandex_client.get_tree_categories()
+        print("В базу данных")
+        await category_service.execute(ozon_categories, wb_categories, yandex_categories)
 
 @router.get("/categories/{local_id}/required-attributes")
 async def get_required_attributes(
@@ -75,8 +75,21 @@ async def complete_template_with_attributes(
         attributes = await attr_service.get_required_attributes(local_category_id=int(type_id))
 
         for mp in ["ozon", "wb", "yandex"]:
-            names = [attr.get("name") for attr in attributes.get(mp, []) if attr.get("name")]
-            all_attributes.update(names)
+            mp_attrs = attributes.get(mp)
+            if not mp_attrs:
+                continue
+
+            # Если это словарь с required/optional (новый формат)
+            if isinstance(mp_attrs, dict):
+                combined_attrs = (mp_attrs.get("required") or []) + (mp_attrs.get("optional") or [])
+            else:
+                # Старый формат, просто список
+                combined_attrs = mp_attrs
+
+            for attr in combined_attrs:
+                name = attr.get("name")
+                if name:
+                    all_attributes.add(name)
 
     # Добавляем недостающие колонки
     for col in all_attributes:

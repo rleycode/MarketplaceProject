@@ -108,10 +108,19 @@ class CategoryAttributesService:
         if category.wb_category and category.wb_category.external_id:
             wb_external_id = category.wb_category.external_id
             wb_attrs = await self.wb_client.get_category_attributes(wb_external_id)
-            wb_required = [attr for attr in wb_attrs if attr.get("required") == True]
-            attributes["wb"] = wb_required
+
+            # Разделяем атрибуты по обязательности
+            wb_required = [attr for attr in wb_attrs if attr.get("required") is True]
+            wb_optional = [attr for attr in wb_attrs if not attr.get("required")]
+
+            attributes["wb"] = {
+                "required": wb_required,
+                "optional": wb_optional
+    }
+
 
         # OZON
+# OZON
         if (
             category.ozon_category and
             category.ozon_category.type_id and
@@ -125,13 +134,27 @@ class CategoryAttributesService:
                 type_id=ozon_type_id
             )
             ozon_required = [attr for attr in ozon_attrs if attr.get("is_required")]
-            attributes["ozon"] = ozon_required  # ✅ перемещено в правильное место
+            ozon_optional = [attr for attr in ozon_attrs if not attr.get("is_required")]
+
+            attributes["ozon"] = {
+                "required": ozon_required,
+                "optional": ozon_optional
+            }
+
 
         # YANDEX
+# YANDEX
         if category.yandex_category and category.yandex_category.external_id:
             yandex_external_id = category.yandex_category.external_id
             yandex_attrs = await self.yandex_client.get_category_attributes(yandex_external_id)
+
+            # Предполагаем, что yandex_attrs — это объекты с полем is_required
             yandex_required = [attr for attr in yandex_attrs if attr.is_required]
-            attributes["yandex"] = yandex_required
+            yandex_optional = [attr for attr in yandex_attrs if not attr.is_required]
+
+            attributes["yandex"] = {
+                "required": yandex_required,
+                "optional": yandex_optional
+            }
 
         return attributes

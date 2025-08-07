@@ -3,7 +3,8 @@ import zipfile
 from fastapi import APIRouter, Depends, File, Response, UploadFile
 import pandas as pd
 
-from app.api.di.dependencies import get_marketplace_service
+from app.api.di.dependencies import get_marketplace_service, get_product_service
+from app.api.services.product_service import ProductExportService
 from app.api.services.marketplace_service import MarketplaceService
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 async def split_marketplace_file(
     file: UploadFile = File(...),
     marketplace_service: MarketplaceService = Depends(get_marketplace_service),
+    product_service: ProductExportService = Depends(get_product_service),
 ):
     content = await file.read()
     df = pd.read_excel(BytesIO(content))
@@ -19,7 +21,9 @@ async def split_marketplace_file(
     templates = await marketplace_service.get_templates()
     local_cat_map = await marketplace_service.get_local_category_map()
 
-    split_files = marketplace_service.split_file_on_marketplaces(df, templates, local_cat_map)
+    products = await product_service.get_products_by_ids(df["id"].unique().tolist())
+
+    split_files = marketplace_service.split_file_on_marketplaces(df, templates, local_cat_map, products)
 
     zip_buffer = BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zipf:
